@@ -82,32 +82,14 @@ public:
 
 private:
 	void tagManually(size_t index_i)
-	{
-		if (type == "cylinder")
-		{   if (base_particles_->pos_n_[index_i][1] < BW)
-            //if (base_particles_->pos_n_[index_i][2] < radius_mid_surface * sin(-17.5 / 180.0 * Pi))
-		    {
-			    body_part_particles_.push_back(index_i);
-		    }
-		}
-		if (type == "circle")
-		{
-			Real radius = PH/2.0;
-		    Real a = sqrt(base_particles_->pos_n_[index_i][0]*base_particles_->pos_n_[index_i][0]
+	{	
+	    Real radius = PH/2.0;
+	    Real a = sqrt(base_particles_->pos_n_[index_i][0]*base_particles_->pos_n_[index_i][0]
                      +base_particles_->pos_n_[index_i][2]*base_particles_->pos_n_[index_i][2]);
             if (a >= radius - BW)
             {
                 body_part_particles_.push_back(index_i);
             }
-		}
-		if (type == "plate")
-		{
-			if (base_particles_->pos_n_[index_i][0] < -PL/2. + BW || base_particles_->pos_n_[index_i][2] < -PH/2. + BW ||
-			    base_particles_->pos_n_[index_i][0] > PL/2.-BW || base_particles_->pos_n_[index_i][2] > PH/2.-BW)
-		    {
-			    body_part_particles_.push_back(index_i);
-		    }
-		}
 	};
 };
 /**
