@@ -12,6 +12,34 @@ namespace SPH
 	namespace fluid_dynamics
 	{
 		//=================================================================================================//
+		void ShearThinningViscousAccelerationWithWall::Interaction(size_t index_i, Real dt)
+		{
+			ShearThinningViscousAccelerationInner::Interaction(index_i, dt);
+
+			Real rho_i = this->rho_n_[index_i];
+			const Vecd &vel_i = this->vel_n_[index_i];
+			Real mu_i = this->mu_shear_[index_i]; 
+
+			Vecd acceleration(0), vel_derivative(0);
+			for (size_t k = 0; k < FluidWallData::contact_configuration_.size(); ++k)
+			{
+				StdLargeVec<Real> &Vol_k = *(this->wall_Vol_[k]);
+				StdLargeVec<Vecd> &vel_ave_k = *(this->wall_vel_ave_[k]);
+				Neighborhood &contact_neighborhood = (*FluidWallData::contact_configuration_[k])[index_i];
+				for (size_t n = 0; n != contact_neighborhood.current_size_; ++n)
+				{
+					size_t index_j = contact_neighborhood.j_[n];
+					Real r_ij = contact_neighborhood.r_ij_[n];
+
+					vel_derivative = 2.0 * (vel_i - vel_ave_k[index_j]) / (r_ij + 0.01 * this->smoothing_length_);
+					acceleration += 2.0 * mu_i * vel_derivative * contact_neighborhood.dW_ij_[n] * Vol_k[index_j] / rho_i;
+					//acceleration += 2.0 * this->mu_ * vel_derivative * contact_neighborhood.dW_ij_[n] * Vol_k[index_j] / rho_i;
+				}
+			}
+
+			this->dvel_dt_prior_[index_i] += acceleration;
+		}
+		//=================================================================================================//
 		TransportVelocityCorrectionComplex::
 			TransportVelocityCorrectionComplex(BaseBodyRelationInner &inner_relation,
 											   BaseBodyRelationContact &contact_relation)

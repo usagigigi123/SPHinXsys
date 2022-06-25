@@ -115,5 +115,22 @@ namespace SPH
 		virtual void initializeOtherVariables() override;
 		virtual WeaklyCompressibleFluidParticles *ThisObjectPtr() override { return this; };
 	};
+
+	/**
+	 * @class ShearThinningFluidParticles
+	 * @brief Shear-thinning fluid particles.
+	 */
+	class ShearThinningFluidParticles : public FluidParticles
+	{
+	public:
+	    StdLargeVec<Real> shear_rate_;            /**< shear rate > */
+		StdLargeVec<Real> mu_shear_;				 /**< viscosity change with shear rate > */
+		
+		ShearThinningFluidParticles(SPHBody &sph_body, Fluid *fluid);
+		virtual ~ShearThinningFluidParticles(){};
+		
+        virtual void initializeOtherVariables() override;
+		virtual ShearThinningFluidParticles *ThisObjectPtr() override { return this; };
+	};
 }
 #endif // FLUID_PARTICLES_H

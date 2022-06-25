@@ -41,6 +41,37 @@ namespace SPH
 			rho_n_[index_i] = ReinitializedDensity(rho_sum_[index_i], rho0_, rho_n_[index_i]);
 			Vol_[index_i] = mass_[index_i] / rho_n_[index_i];
 		}
+				//=================================================================================================//
+		UpdateViscosity::UpdateViscosity(BaseBodyRelationInner &inner_relation, 
+		            Real mu_0, Real lambda)
+			: InteractionDynamics(*inner_relation.sph_body_),
+			  FluidDataInner(inner_relation),
+			  Vol_(particles_->Vol_), vel_n_(particles_->vel_n_),
+			  mu_(material_->ReferenceViscosity()),
+			  mu_0_(mu_0), lambda_(lambda), 
+			  shear_rate_(DynamicCast<ShearThinningFluidParticles>(this, sph_body_->base_particles_)->shear_rate_),
+			  mu_shear_(DynamicCast<ShearThinningFluidParticles>(this, sph_body_->base_particles_)->mu_shear_)
+		{}
+		//=================================================================================================//
+		void UpdateViscosity::Interaction(size_t index_i, Real dt)
+		{
+			const Vecd vel_i = vel_n_[index_i];
+			const Neighborhood &inner_neighborhood = inner_configuration_[index_i];
+
+			Matd shear_rate_tensor(0);
+			for (size_t n = 0; n != inner_neighborhood.current_size_; ++n)
+			{
+				size_t index_j = inner_neighborhood.j_[n];
+				//viscous force
+				Vecd nablaW_ij = inner_neighborhood.dW_ij_[n] * inner_neighborhood.e_ij_[n];
+				Matd velocity_gradient_i = -SimTK::outer((vel_i - vel_n_[index_j]), nablaW_ij) * Vol_[index_j];
+				shear_rate_tensor += 0.5 * (velocity_gradient_i + ~velocity_gradient_i);
+			}
+			Real shear_rate = sqrt(2.0) * shear_rate_tensor.norm();
+			shear_rate_[index_i] = shear_rate;
+			mu_shear_[index_i] = mu_ + (mu_0_ - mu_) * (1 + log(1 + lambda_ * shear_rate)) / (1 + lambda_ * shear_rate);
+			//mu_shear_[index_i] = mu_ + (mu_0_ - mu_) / std::pow(1 + std::pow(lambda_ * shear_rate_[index_i], b_), a_);
+		}
 		//=================================================================================================//
 		ViscousAccelerationInner::ViscousAccelerationInner(BaseBodyRelationInner &inner_relation)
 			: InteractionDynamics(*inner_relation.sph_body_),
@@ -65,6 +96,27 @@ namespace SPH
 				//viscous force
 				vel_derivative = (vel_i - vel_n_[index_j]) / (inner_neighborhood.r_ij_[n] + 0.01 * smoothing_length_);
 				acceleration += 2.0 * mu_ * vel_derivative * Vol_[index_j] * inner_neighborhood.dW_ij_[n] / rho_i;
+			}
+
+			dvel_dt_prior_[index_i] += acceleration;
+		}
+		//=================================================================================================//
+		void ShearThinningViscousAccelerationInner::Interaction(size_t index_i, Real dt)
+		{
+			Real rho_i = rho_n_[index_i];
+			const Vecd &vel_i = vel_n_[index_i];
+			Real mu_i = mu_shear_[index_i];
+
+			Vecd acceleration(0), vel_derivative(0);
+			const Neighborhood &inner_neighborhood = inner_configuration_[index_i];
+			for (size_t n = 0; n != inner_neighborhood.current_size_; ++n)
+			{
+				size_t index_j = inner_neighborhood.j_[n];
+				//viscous force
+				Real mu_j = mu_shear_[index_j];
+				Real mu_ij = 2 * mu_i * mu_j / (mu_i + mu_j);
+				vel_derivative = (vel_i - vel_n_[index_j]) / (inner_neighborhood.r_ij_[n] + 0.01 * smoothing_length_);
+				acceleration += 2.0 * mu_ij * vel_derivative * Vol_[index_j] * inner_neighborhood.dW_ij_[n] / rho_i;
 			}
 
 			dvel_dt_prior_[index_i] += acceleration;

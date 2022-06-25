@@ -96,4 +96,18 @@ namespace SPH
 		addAVariableToWrite<Real>("Pressure");
 	}
 	//=================================================================================================//
+	ShearThinningFluidParticles::
+		ShearThinningFluidParticles(SPHBody &sph_body, Fluid *fluid)
+		: FluidParticles(sph_body, fluid) {}
+	void ShearThinningFluidParticles::initializeOtherVariables()
+	{
+		FluidParticles::initializeOtherVariables();
+
+		registerAVariable<Real>(shear_rate_, "ShearRate");
+		registerAVariable<Real>(mu_shear_, "Viscosity");
+
+		addAVariableToWrite<Real>("ShearRate");
+		addAVariableToWrite<Real>("Viscosity");
+	}
+	//=================================================================================================//
 }

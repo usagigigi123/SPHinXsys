@@ -80,6 +80,21 @@ namespace SPH
 			virtual Real ReinitializedDensity(Real rho_sum, Real rho_0, Real rho_n) { return rho_sum; };
 		};
 
+		// @class UpdateViscosity
+		// @brief calculate viscosity varying with shear rate
+		class UpdateViscosity : public InteractionDynamics, public FluidDataInner
+		{
+		public:
+			explicit UpdateViscosity(BaseBodyRelationInner &inner_relation, Real mu_0, Real lambda);
+			virtual ~UpdateViscosity(){};
+		protected:
+			StdLargeVec<Real> &Vol_, &shear_rate_, &mu_shear_;
+			StdLargeVec<Vecd> &vel_n_;
+			Real mu_, mu_0_, lambda_;
+			
+			virtual void Interaction(size_t index_i, Real dt = 0.0) override;
+		};
+
 		/**
 		 * @class ViscousAccelerationInner
 		 * @brief  the viscosity force induced acceleration
@@ -96,6 +111,25 @@ namespace SPH
 			StdLargeVec<Real> &Vol_, &rho_n_, &p_;
 			StdLargeVec<Vecd> &vel_n_, &dvel_dt_prior_;
 
+			virtual void Interaction(size_t index_i, Real dt = 0.0) override;
+		};
+         
+		 /**
+		 * @class ShearThinningViscousAccelerationInner
+		 * @brief  the viscosity force induced acceleration with varing viscosity
+		 */
+		class ShearThinningViscousAccelerationInner : public ViscousAccelerationInner
+		{
+		public:
+			explicit ShearThinningViscousAccelerationInner(BaseBodyRelationInner &inner_relation)
+				: ViscousAccelerationInner(inner_relation), 
+				mu_shear_(DynamicCast<ShearThinningFluidParticles>(this, sph_body_->base_particles_)->mu_shear_)
+				{};
+			
+			virtual ~ShearThinningViscousAccelerationInner(){};
+		protected:
+		    StdLargeVec<Real> &mu_shear_; //viscosity as a function of shear rate 
+			
 			virtual void Interaction(size_t index_i, Real dt = 0.0) override;
 		};
 
