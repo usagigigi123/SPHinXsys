@@ -7,17 +7,13 @@
 #include "sphinxsys.h"
 using namespace SPH;
 //----------------------------------------------------------------------
-//	Set the file path to the data file.
-//----------------------------------------------------------------------
-std::string full_path_to_geometry = "./input/leaflet_1mm_1.stl";
-//----------------------------------------------------------------------
 //	Basic geometry parameters and numerical setup.
 //----------------------------------------------------------------------
 Real scale = 1.;								 
 Real PH = 25.0*scale;									  												
 Vec3d domain_lower_bound(-PH, 0.0, -PH);
 Vec3d domain_upper_bound(PH, 22.0*scale, PH);
-Real resolution_ref = 1.*scale; 
+Real resolution_ref = 0.5*scale; 
 Real PT = 1.*scale;
 // level set resolution much higher than that of particles is required
 Real level_set_refinement_ratio = resolution_ref / (0.1 * PT);
@@ -33,7 +29,9 @@ class ImportedShellModel: public ComplexShape
 public:
 	explicit ImportedShellModel(const std::string &shape_name) : ComplexShape(shape_name)
 	{
-		add<TriangleMeshShapeSTL>(full_path_to_geometry, Vecd(0)*scale, 1.0*scale);
+		add<TriangleMeshShapeSTL>("./input/leaflet_1mm_1.stl", Vecd(0)*scale, 1.0*scale);
+		//add<TriangleMeshShapeSTL>("./input/leaflet_1mm_2.stl", Vecd(0)*scale, 1.0*scale);
+		//add<TriangleMeshShapeSTL>("./input/leaflet_1mm_3.stl", Vecd(0)*scale, 1.0*scale);
 	}
 };
 
@@ -41,12 +39,12 @@ public:
 Real rho0_s = 1100.0;				   
 Real Youngs_modulus = 1.6e4;
 Real poisson = 0.0;				   
-Real physical_viscosity = 200.0;   
+Real physical_viscosity = 1e6;   
 
 Real q = 0; 
 Real time_to_full_external_force = 0.5;
 
-Real gravitational_acceleration = 100.0 * 1.0e0;
+Real gravitational_acceleration = 100.0 * 1.0e1;
 
 class BoundaryGeometry : public BodyPartByParticle
 {
@@ -73,7 +71,7 @@ private:
 };
 
 
-class TimeDependentExternalForce : public Gravity
+class TimeDependentExternalForce : public Gravity//
 {
 public:
 	explicit TimeDependentExternalForce(Vecd external_force)
@@ -82,10 +80,10 @@ public:
 	{
 		Real current_time = GlobalStaticVariables::physical_time_;
 		//return global_acceleration_;
-		//return global_acceleration_* 0.5 * (1.0 + sin(Pi * current_time / time_to_full_external_force - 0.5 * Pi));
-		return current_time < time_to_full_external_force
-				   ? current_time * global_acceleration_ / time_to_full_external_force
-				   : global_acceleration_;
+		return global_acceleration_* sin(Pi * current_time / time_to_full_external_force);
+		//return current_time < time_to_full_external_force
+		//		   ? current_time * global_acceleration_ / time_to_full_external_force
+		//		   : global_acceleration_;
 	}
 };
 
@@ -96,69 +94,96 @@ int main()
 	//	Build up a SPHSystem.
 	//----------------------------------------------------------------------
 	SPHSystem system(system_domain_bounds, resolution_ref);
+	/** Tag for running particle relaxation for the initially body-fitted distribution */
+	system.run_particle_relaxation_ = false;
+	/** Tag for starting with relaxed body-fitted particles distribution */
+	system.reload_particles_ = true;
+	/** Tag for computation from restart files. 0: start with initial condition */
+	system.restart_step_ = 0;
+
 	InOutput in_output(system);
     //----------------------------------------------------------------------
 	//	Creating body, materials and particles.
 	//----------------------------------------------------------------------
 	SolidBody plate_body(system, makeShared<ImportedShellModel>("ImportedShellModel"));
-	plate_body.defineBodyLevelSetShape(level_set_refinement_ratio)->writeLevelSet(plate_body);
-	//here dummy linear elastic solid is use because no solid dynamics in particle relaxation
-	plate_body.defineParticlesAndMaterial<ShellParticles, LinearElasticSolid>(rho0_s, Youngs_modulus, poisson);
-	plate_body.generateParticles<ThickSurfaceParticleGeneratorLattice>(PT);
-	//plate_body.addBodyStateForRecording<Vecd>("NormalDirection");
+	plate_body.defineParticlesAndMaterial<ShellParticles, NeoHookeanSolid>(rho0_s, Youngs_modulus, poisson);
+	if (!system.run_particle_relaxation_ && system.reload_particles_)
+	{
+		plate_body.generateParticles<ParticleGeneratorReload>(in_output, plate_body.getBodyName());
+	}
+	else
+	{
+		plate_body.defineBodyLevelSetShape(level_set_refinement_ratio)->writeLevelSet(plate_body);
+	    //here dummy linear elastic solid is use because no solid dynamics in particle relaxation
+	    plate_body.generateParticles<ThickSurfaceParticleGeneratorLattice>(PT);
+	    //plate_body.addBodyStateForRecording<Vecd>("NormalDirection");
+	}
+
+	if (!system.run_particle_relaxation_ && !system.reload_particles_)
+	{
+		std::cout << "Error: This case requires reload shell particles for simulation!" << std::endl;
+		return 0;
+	}
 
     //----------------------------------------------------------------------
 	//	Define simple file input and outputs functions.
 	//----------------------------------------------------------------------
 	BodyStatesRecordingToVtp write_states(in_output, system.real_bodies_);
-	//MeshRecordingToPlt write_mesh_cell_linked_list(in_output, imported_model, imported_model.cell_linked_list_);
+	
+	//----------------------------------------------------------------------
+	//	Methods used for particle relaxation.
+	//----------------------------------------------------------------------
+	if (system.run_particle_relaxation_)
+	{
+	    BodyRelationInner plate_body_inner(plate_body);
+		RandomizeParticlePosition  random_imported_model_particles(plate_body);
+	    // A  Physics relaxation step. 
+	// A  Physics relaxation step. 
+	    // A  Physics relaxation step. 
+	    relax_dynamics::ShellRelaxationStepInner relaxation_step_inner(plate_body_inner, PT, level_set_refinement_ratio);
+	    relax_dynamics::ShellNormalDirectionPrediction shell_normal_prediction(plate_body_inner, PT);
+		plate_body.addBodyStateForRecording<int>("UpdatedIndicator");
+	    //----------------------------------------------------------------------
+		//	Output for particle relaxation.
+		//----------------------------------------------------------------------
+		BodyStatesRecordingToVtp write_relaxed_particles(in_output, system.real_bodies_);
+		MeshRecordingToPlt write_mesh_cell_linked_list(in_output, plate_body, plate_body.cell_linked_list_);
+		ReloadParticleIO write_particle_reload_files(in_output, {&plate_body});
+		//----------------------------------------------------------------------
+	    //	Particle relaxation starts here.
+	    //----------------------------------------------------------------------
+	    random_imported_model_particles.parallel_exec(0.25);
+	    relaxation_step_inner.mid_surface_bounding_.parallel_exec();
+	    write_relaxed_particles.writeToFile(0.0);
+	    plate_body.updateCellLinkedList();
+	    write_mesh_cell_linked_list.writeToFile(0.0);
+	    //----------------------------------------------------------------------
+	    //	Particle relaxation time stepping start here.
+	    //----------------------------------------------------------------------
+	    int ite_p = 0;
+	    while (ite_p < 1000)
+	    {
+	    	if (ite_p % 100 == 0)
+	    	{
+	    		std::cout << std::fixed << std::setprecision(9) << "Relaxation steps for the inserted body N = " << ite_p << "\n";
+	    		write_relaxed_particles.writeToFile(ite_p);
+	    	}
+	    	relaxation_step_inner.parallel_exec();
+	    	ite_p += 1;
+	    }
+		std::cout << "The physics relaxation process of imported model finish !" << std::endl;
+		shell_normal_prediction.exec();
+		write_relaxed_particles.writeToFile(ite_p);
+		write_particle_reload_files.writeToFile(0);
+		return 0;
+	}
+
 	//----------------------------------------------------------------------
 	//	Define body relation map.
 	//	The contact map gives the topological connections between the bodies.
 	//	Basically the the range of bodies to build neighbor particle lists.
 	//----------------------------------------------------------------------
 	BodyRelationInner plate_body_inner(plate_body);
-
-	//----------------------------------------------------------------------
-	//	Methods used for particle relaxation.
-	//----------------------------------------------------------------------
-	RandomizeParticlePosition  random_imported_model_particles(plate_body);
-	// A  Physics relaxation step. 
-	relax_dynamics::ShellRelaxationStepInner relaxation_step_inner(plate_body_inner, PT, level_set_refinement_ratio);
-	relax_dynamics::ShellNormalDirectionPrediction shell_normal_prediction(plate_body_inner, PT);
-	//----------------------------------------------------------------------
-	//	Particle relaxation starts here.
-	//----------------------------------------------------------------------
-	random_imported_model_particles.parallel_exec(0.25);
-	relaxation_step_inner.mid_surface_bounding_.parallel_exec();
-	write_states.writeToFile(0.0);
-	plate_body.updateCellLinkedList();
-	
-	//----------------------------------------------------------------------
-	//	Particle relaxation time stepping start here.
-	//----------------------------------------------------------------------
-	int ite_p = 0;
-	while (ite_p < 1000)
-	{
-		if (ite_p % 100 == 0)
-		{
-			std::cout << std::fixed << std::setprecision(9) << "Relaxation steps for the inserted body N = " << ite_p << "\n";
-			//write_states.writeToFile(ite_p);
-		}
-		relaxation_step_inner.parallel_exec();
-		ite_p += 1;
-	}
-	//relaxation_step_inner.mid_surface_bounding_.calculateNormalDirection(); 
-    shell_normal_prediction.exec();
-	// update pos_0_
-//	std::copy(
-//		plate_body.base_particles_->pos_n_.begin(),
-//		plate_body.base_particles_->pos_n_.end(),
-//		plate_body.base_particles_->pos_0_.begin()
-//	);
-
-	write_states.writeToFile(ite_p);
-	std::cout << "The physics relaxation process of imported model finish !" << std::endl;
     
 	//TimeDependentExternalForce external_force(Vec3d(0.0, 0.0, q / (PT * rho0_s) - gravitational_acceleration));
 	TimeDependentExternalForce external_force(Vec3d(0.0, gravitational_acceleration, 0.0));
@@ -197,7 +222,7 @@ int main()
 	write_states.writeToFile(0);
 
 	int ite = 0;
-	Real end_time = 1.0;
+	Real end_time = 5.0;
 	//Real end_time = 2.0;
 	Real output_period = end_time / 100.0;
 	Real dt = 0.0;
