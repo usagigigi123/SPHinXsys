@@ -128,5 +128,30 @@ namespace SPH
 		Real ReferencePolymericViscosity() { return mu_p_; };
 		virtual Oldroyd_B_Fluid *ThisObjectPtr() override { return this; };
 	};
+
+	class ShearThinningFluid : public WeaklyCompressibleFluid
+    {
+    protected:
+        Real mu_0_;   /**< zero shear rate viscosity */
+        Real lambda_; /**< oscillation time */
+        //Real a_; 
+        //Real b_;
+
+    public:
+        explicit ShearThinningFluid(Real rho0, Real c0, Real mu, Real mu_0, Real lambda)
+            : WeaklyCompressibleFluid(rho0, c0, mu),
+              mu_0_(mu_0), lambda_(lambda)
+        {
+            material_type_name_ = "Shear_Thinning_Fluid";
+        };
+        virtual ~ShearThinningFluid(){};
+
+        Real getReferenceOscillationTime() { return lambda_; };
+        Real ReferenceZeroShearViscosity() { return mu_0_; };
+        //Real getReferenceParameterA() { return a_; };
+        //Real getReferenceParameterB() { return b_; };
+        virtual ShearThinningFluid *ThisObjectPtr() override { return this; };
+    };
+
 }
 #endif // WEAKLY_COMPRESSIBLE_FLUID_H

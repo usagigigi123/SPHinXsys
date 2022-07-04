@@ -43,12 +43,12 @@ namespace SPH
 		}
 				//=================================================================================================//
 		UpdateViscosity::UpdateViscosity(BaseBodyRelationInner &inner_relation, 
-		            Real mu_0, Real lambda)
+		            Real mu_0, Real lambda, Real a, Real b)
 			: InteractionDynamics(*inner_relation.sph_body_),
 			  FluidDataInner(inner_relation),
 			  Vol_(particles_->Vol_), vel_n_(particles_->vel_n_),
 			  mu_(material_->ReferenceViscosity()),
-			  mu_0_(mu_0), lambda_(lambda), 
+			  mu_0_(mu_0), lambda_(lambda), a_(a), b_(b),
 			  shear_rate_(DynamicCast<ShearThinningFluidParticles>(this, sph_body_->base_particles_)->shear_rate_),
 			  mu_shear_(DynamicCast<ShearThinningFluidParticles>(this, sph_body_->base_particles_)->mu_shear_)
 		{}
@@ -69,8 +69,8 @@ namespace SPH
 			}
 			Real shear_rate = sqrt(2.0) * shear_rate_tensor.norm();
 			shear_rate_[index_i] = shear_rate;
-			mu_shear_[index_i] = mu_ + (mu_0_ - mu_) * (1 + log(1 + lambda_ * shear_rate)) / (1 + lambda_ * shear_rate);
-			//mu_shear_[index_i] = mu_ + (mu_0_ - mu_) / std::pow(1 + std::pow(lambda_ * shear_rate_[index_i], b_), a_);
+			//mu_shear_[index_i] = mu_ + (mu_0_ - mu_) * (1 + log(1 + lambda_ * shear_rate)) / (1 + lambda_ * shear_rate);
+			mu_shear_[index_i] = mu_ + (mu_0_ - mu_) / std::pow(1 + std::pow(lambda_ * shear_rate_[index_i], b_), a_);
 		}
 		//=================================================================================================//
 		ViscousAccelerationInner::ViscousAccelerationInner(BaseBodyRelationInner &inner_relation)
@@ -117,6 +117,7 @@ namespace SPH
 				Real mu_ij = 2 * mu_i * mu_j / (mu_i + mu_j);
 				vel_derivative = (vel_i - vel_n_[index_j]) / (inner_neighborhood.r_ij_[n] + 0.01 * smoothing_length_);
 				acceleration += 2.0 * mu_ij * vel_derivative * Vol_[index_j] * inner_neighborhood.dW_ij_[n] / rho_i;
+				//acceleration += 2.0 * mu_i * vel_derivative * Vol_[index_j] * inner_neighborhood.dW_ij_[n] / rho_i;
 			}
 
 			dvel_dt_prior_[index_i] += acceleration;
@@ -393,6 +394,41 @@ namespace SPH
 			tau_[index_i] += dtau_dt_[index_i] * dt * 0.5;
 		}
 		//=================================================================================================//
+		DensityRelaxationInnerShearThinning::
+            DensityRelaxationInnerShearThinning(BaseBodyRelationInner &inner_relation)
+            : DensityRelaxationDissipativeRiemannInner(inner_relation),
+              shear_rate_(DynamicCast<ShearThinningFluidParticles>(this, sph_body_->base_particles_)->shear_rate_),
+              mu_shear_(DynamicCast<ShearThinningFluidParticles>(this, sph_body_->base_particles_)->mu_shear_)
+        {
+            ShearThinningFluid *shear_thinning_fluid = DynamicCast<ShearThinningFluid>(this, sph_body_->base_material_);
+            mu_ = material_->ReferenceViscosity();
+            mu_0_ = shear_thinning_fluid->ReferenceZeroShearViscosity();
+            lambda_ = shear_thinning_fluid->getReferenceOscillationTime();
+            //a_ = shear_thinning_fluid->getReferenceParameterA();
+            //b_ = shear_thinning_fluid->getReferenceParameterB();
+        }
+        //=================================================================================================//
+        void DensityRelaxationInnerShearThinning::Interaction(size_t index_i, Real dt)
+        {
+            DensityRelaxationDissipativeRiemannInner::Interaction(index_i, dt);
+
+            Vecd vel_i = vel_n_[index_i];
+            Neighborhood &inner_neighborhood = inner_configuration_[index_i];
+
+            Matd shear_rate_tensor(0);
+            for (size_t n = 0; n != inner_neighborhood.current_size_; ++n)
+            {
+                size_t index_j = inner_neighborhood.j_[n];
+                //viscous force
+                Vecd nablaW_ij = inner_neighborhood.dW_ij_[n] * inner_neighborhood.e_ij_[n];
+                Matd velocity_gradient_i = -SimTK::outer((vel_i - vel_n_[index_j]), nablaW_ij) * Vol_[index_j];
+                shear_rate_tensor += 0.5 * (velocity_gradient_i + ~velocity_gradient_i);
+            }
+            shear_rate_[index_i] = sqrt(2.0) * shear_rate_tensor.norm();
+			mu_shear_[index_i] = mu_ + (mu_0_ - mu_) * (1 + log(1 + lambda_ * shear_rate_[index_i])) / (1 + lambda_ * shear_rate_[index_i]);
+            //mu_shear_[index_i] = mu_ + (mu_0_ - mu_) / std::pow(1 + std::pow(lambda_ * shear_rate_[index_i], b_), a_);
+        }
+
 	}
 	//=================================================================================================//
 }

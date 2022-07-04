@@ -85,13 +85,14 @@ namespace SPH
 		class UpdateViscosity : public InteractionDynamics, public FluidDataInner
 		{
 		public:
-			explicit UpdateViscosity(BaseBodyRelationInner &inner_relation, Real mu_0, Real lambda);
+			explicit UpdateViscosity(BaseBodyRelationInner &inner_relation, Real mu_0, Real lambda, Real a, Real b);
 			virtual ~UpdateViscosity(){};
 		protected:
 			StdLargeVec<Real> &Vol_, &shear_rate_, &mu_shear_;
 			StdLargeVec<Vecd> &vel_n_;
-			Real mu_, mu_0_, lambda_;
+			Real mu_, mu_0_, lambda_, a_, b_;
 			
+			//Matd CalculateShearRateTensor(size_t index_i, Real dt = 0.0);
 			virtual void Interaction(size_t index_i, Real dt = 0.0) override;
 		};
 
@@ -365,6 +366,20 @@ namespace SPH
 			virtual void Interaction(size_t index_i, Real dt = 0.0) override;
 			virtual void Update(size_t index_i, Real dt = 0.0) override;
 		};
+
+		class DensityRelaxationInnerShearThinning : public DensityRelaxationDissipativeRiemannInner
+        {
+        public:
+            explicit DensityRelaxationInnerShearThinning(BaseBodyRelationInner &inner_relation);
+            virtual ~DensityRelaxationInnerShearThinning(){};
+
+        protected:
+            StdLargeVec<Real> &shear_rate_, &mu_shear_;
+            Real mu_, mu_0_, lambda_;
+
+            virtual void Interaction(size_t index_i, Real dt = 0.0) override;
+        };
+
 	}
 }
 #endif //FLUID_DYNAMICS_INNER_H

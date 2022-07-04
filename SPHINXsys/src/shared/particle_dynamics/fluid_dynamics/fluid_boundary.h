@@ -76,6 +76,19 @@ namespace SPH
             virtual void Update(size_t index_i, Real dt = 0.0) override;
         };
 
+        class InflowBoundaryConditionWithPressure : public InflowBoundaryCondition
+        {
+        public:
+            InflowBoundaryConditionWithPressure(FluidBody &fluid_body, BodyAlignedBoxByCell &aligned_box_part);
+            virtual ~InflowBoundaryConditionWithPressure(){};
+
+        protected:
+            StdLargeVec<Real> &p_, &rho_n_;
+            virtual Real getTargetPressure(Vecd &position) = 0;
+            virtual void Update(size_t index_i, Real dt = 0.0) override;
+        };
+
+
         /**
          * @class DampingBoundaryCondition
          * @brief damping boundary condition which relaxes

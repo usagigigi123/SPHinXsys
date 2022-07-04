@@ -110,4 +110,18 @@ namespace SPH
 		addAVariableToWrite<Real>("Viscosity");
 	}
 	//=================================================================================================//
+	ShearThinningViscoelasticFluidParticles::
+		ShearThinningViscoelasticFluidParticles(SPHBody &sph_body, Oldroyd_B_Fluid *oldroyd_b_fluid)
+		: ViscoelasticFluidParticles(sph_body, oldroyd_b_fluid) {}
+	void ShearThinningViscoelasticFluidParticles::initializeOtherVariables()
+	{
+		ViscoelasticFluidParticles::initializeOtherVariables();
+
+		registerAVariable<Real>(shear_rate_, "ShearRate");
+		registerAVariable<Real>(mu_shear_, "Viscosity");
+
+		addAVariableToWrite<Real>("ShearRate");
+		addAVariableToWrite<Real>("Viscosity");
+	}
+	//=================================================================================================//
 }

@@ -36,6 +36,20 @@ namespace SPH
 			Vecd target_velocity = transform_.xformFrameVecToBase(getTargetVelocity(frame_position, frame_velocity));
 			vel_n_[index_i] += relaxation_rate_ * (target_velocity - vel_n_[index_i]);
 		}
+        //=================================================================================================//
+		InflowBoundaryConditionWithPressure :: 
+        	InflowBoundaryConditionWithPressure(FluidBody &fluid_body, BodyAlignedBoxByCell &aligned_box_part) :
+        	fluid_dynamics::InflowBoundaryCondition(fluid_body, aligned_box_part), 
+        	p_(particles_->p_), rho_n_(particles_->rho_n_) {}
+		//=================================================================================================//
+		void InflowBoundaryConditionWithPressure :: Update(size_t index_i, Real dt)
+        {
+            InflowBoundaryCondition :: Update(index_i, dt);
+            Vecd frame_position = transform_.shiftBaseStationToFrame(pos_n_[index_i]);
+            Real target_pressure = getTargetPressure(frame_position);
+        	p_[index_i] += relaxation_rate_ * (target_pressure - p_[index_i]);
+            rho_n_[index_i] = material_->DensityFromPressure(p_[index_i]);
+        }
 		//=================================================================================================//
 		DampingBoundaryCondition::
 			DampingBoundaryCondition(FluidBody &fluid_body, BodyRegionByCell &body_part)

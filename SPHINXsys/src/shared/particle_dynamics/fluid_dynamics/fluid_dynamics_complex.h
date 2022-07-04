@@ -122,20 +122,21 @@ namespace SPH
 		};
 		using ViscousAccelerationWithWall = BaseViscousAccelerationWithWall<ViscousWithWall<ViscousAccelerationInner>>;
 		/**
-		 * @class ShearThinningViscousAccelerationWithWall
-		 * @brief  shear thinning viscous acceleration with wall boundary
-		 */
-		class ShearThinningViscousAccelerationWithWall : public ViscousWithWall<ShearThinningViscousAccelerationInner>
-		{
-		public:
-			explicit ShearThinningViscousAccelerationWithWall(ComplexBodyRelation &fluid_wall_relation)
-				: ViscousWithWall<ShearThinningViscousAccelerationInner>(fluid_wall_relation.inner_relation_,
-																			fluid_wall_relation.contact_relation_){};
-			virtual ~ShearThinningViscousAccelerationWithWall(){};
+         * @class ShearThinningViscousAccelerationWithWall
+         * @brief  shear thinning viscous acceleration with wall boundary
+         */
+        class ShearThinningViscousAccelerationWithWall : public ViscousWithWall<ShearThinningViscousAccelerationInner>
+        {
+        public:
+            explicit ShearThinningViscousAccelerationWithWall(ComplexBodyRelation &fluid_wall_relation)
+                : ViscousWithWall<ShearThinningViscousAccelerationInner>(fluid_wall_relation.inner_relation_,
+                                                                            fluid_wall_relation.contact_relation_){};
+            virtual ~ShearThinningViscousAccelerationWithWall(){};
 
-		protected:
-			virtual void Interaction(size_t index_i, Real dt = 0.0) override;
-		}; 
+        protected:
+            virtual void Interaction(size_t index_i, Real dt = 0.0) override;
+		};
+
 		/**
 		 * @class TransportVelocityCorrectionComplex
 		 * @brief  transport velocity correction consdiering  the contribution from contact bodies
@@ -264,6 +265,7 @@ namespace SPH
 		};
 		using DensityRelaxationWithWall = BaseDensityRelaxationWithWall<DensityRelaxationInner>;
 		using DensityRelaxationRiemannWithWall = BaseDensityRelaxationWithWall<DensityRelaxationRiemannInner>;
+		using DensityRelaxationWithWallShearThinning = BaseDensityRelaxationWithWall<DensityRelaxationInnerShearThinning>;
 
 		/**
 		* @class PressureRelaxationWithWallOldroyd_B
