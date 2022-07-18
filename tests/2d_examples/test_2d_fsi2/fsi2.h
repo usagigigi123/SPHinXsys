@@ -29,7 +29,7 @@ BoundingBox system_domain_bounds(Vec2d(-DL_sponge - BW, -BW), Vec2d(DL + BW, DH 
 //----------------------------------------------------------------------
 Real rho0_f = 1.0;											  /**< Density. */
 Real U_f = 1.0;												  /**< Characteristic velocity. */
-Real c_f = 10.0 * U_f;										  /**< Speed of sound. */
+Real c_f = 20.0 * U_f;										  /**< Speed of sound. */
 Real Re = 100.0;											  /**< Reynolds number. */
 Real mu_f = rho0_f * U_f * (2.0 * insert_circle_radius) / Re; /**< Dynamics viscosity. */
 //----------------------------------------------------------------------
